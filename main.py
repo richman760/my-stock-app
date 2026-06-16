@@ -1,5 +1,5 @@
 import streamlit as st
-import finance_datareader as fdr
+import FinanceDataReader as fdr
 import datetime
 
 st.title("🇰🇷 한국장 검색기")
