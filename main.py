@@ -5,25 +5,18 @@ import datetime
 
 st.set_page_config(layout="wide")
 
+# 세션 및 새로고침 방어 (삭제 금지)
 if "current_stock" not in st.session_state: st.session_state.current_stock = ""
+if "code" in st.query_params: st.session_state.current_stock = st.query_params["code"]
 
-st.title("💰 실전 타점 & 수익률 가이드")
+st.title("💰 실전 타점 & 매매 판단 엔진")
 
 code_input = st.text_input("종목코드 6자리 입력", key="search_box")
 
-# 종목 코드 매칭용 데이터 로드
-@st.cache_data
-def load_all_stocks():
-    import FinanceDataReader as fdr
-    return fdr.StockListing('KRX')[['Code', 'Name', 'Market']]
-
-stocks = load_all_stocks()
-
 if code_input and len(code_input) == 6:
-    match = stocks[stocks['Code'] == code_input]
-    if not match.empty:
-        market = match['Market'].iloc[0]
-        st.session_state.current_stock = code_input + (".KS" if market == 'KOSPI' else ".KQ")
+    code = code_input + (".KS" if int(code_input) < 300000 else ".KQ")
+    st.session_state.current_stock = code
+    st.query_params["code"] = code
 
 if st.session_state.current_stock:
     try:
@@ -31,38 +24,36 @@ if st.session_state.current_stock:
         df_10m = ticker.history(period="5d", interval="15m")
         df_daily = ticker.history(period="1mo")
         
-        # [수정] 최신 판다스 규격에 맞게 ffill() 사용
         for df in [df_daily, df_10m]:
             df.ffill(inplace=True)
             df['MA20'] = df['Close'].rolling(20, min_periods=1).mean()
+
+        cur = float(df_10m['Close'].iloc[-1])
+        ma20_10m = float(df_10m['MA20'].iloc[-1])
+        target_daily = float(df_daily['MA20'].iloc[-1] * 1.05)
+
+        st.caption(f"⏱️ 갱신: {datetime.datetime.now().strftime('%H:%M:%S')}")
         
-        if df_10m.empty:
-            st.warning("데이터를 가져오는 중입니다. 잠시만 기다려주세요.")
-        else:
-            cur = df_10m['Close'].iloc[-1]
-            ma20_10m = df_10m['MA20'].iloc[-1]
-            target_daily = df_daily['MA20'].iloc[-1] * 1.05
-
-            st.subheader(f"🏢 {ticker.info.get('longName', '조회 종목')}")
-            
-            # 진입 판단 및 가이드
-            if cur < ma20_10m:
-                buy_price = cur
-                advice = "🟢 [진입] 10분봉 20선 아래입니다. 지금 진입하세요."
+        # 🤖 AI 판단 로직 (신호등 시스템)
+        st.subheader("🤖 AI 매매 판단")
+        if cur <= ma20_10m:
+            # 단기 눌림목일 때
+            if cur < df_daily['Close'].iloc[-1]: # 일봉보다 아래면 저점
+                decision = "🟢 [매수 OK] 10분봉 눌림목 구간입니다. 진입 후 종가까지 추세 보유하세요."
             else:
-                buy_price = ma20_10m
-                advice = f"🔴 [대기] 10분봉 20선({int(ma20_10m):,}원)까지 눌릴 때 진입하세요."
+                decision = "🟡 [분할 매도] 단기 반등 시 일부 익절 후 일봉 흐름을 확인하세요."
+        else:
+            decision = "🔴 [관망] 현재가 고점 구간입니다. 눌림목(10분봉 20선)까지 기다리세요."
 
-            profit_potential = ((target_daily - buy_price) / buy_price) * 100
-            
-            col1, col2, col3 = st.columns(3)
-            col1.metric("추천 매수가", f"{int(buy_price):,}원")
-            col2.metric("일봉 종가 목표가", f"{int(target_daily):,}원")
-            col3.metric("예상 수익률", f"{profit_potential:.2f}%")
-            
-            st.info(f"### 🤖 매매 전략: {advice}")
-            st.write(f"- 10분봉 기준으로 {int(buy_price):,}원에 진입하여 일봉 흐름상 {int(target_daily):,}원까지 홀딩하는 전략입니다.")
-            st.write(f"- 종가 기준 수익률이 {profit_potential:.2f}% 이상 예상되면 종가까지 보유를 추천합니다.")
+        st.info(f"### {decision}")
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("현재가", f"{int(cur):,}원")
+        col2.metric("단기 목표(1.5%)", f"{int(cur * 1.015):,}원")
+        col3.metric("일봉 종가 목표", f"{int(target_daily):,}원")
+        
+        st.write("---")
+        st.write("📌 **전략:** 10분봉 20선 근처에서 매수하고, 단기 목표가 도달 시 분할 매도 후 일봉 종가 목표가까지 홀딩 여부를 결정하세요.")
 
     except Exception as e:
-        st.error(f"데이터 처리 오류: {e}")
+        st.error(f"데이터 분석 오류: {e}")
