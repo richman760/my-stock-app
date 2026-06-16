@@ -136,4 +136,29 @@ if code and len(code) == 6:
             col_s, col_l = st.columns(2)
             
             with col_s:
-                st.info("⏱️ **[단기] 10분
+                st.info("⏱️ **[단기] 10분봉 기준 타점 (빠른 치고 빠지기)**")
+                st.write(f"- 🟢 **베스트 진입가:** {int(short_buy):,}원")
+                st.write(f"- 🎯 **단기 목표가:** {int(short_target):,}원")
+                st.write(f"- 🛡️ **단기 손절가:** {int(short_buy * 0.98):,}원 (-2%)")
+                
+            with col_l:
+                st.success("📅 **[스윙] 일봉 기준 타점 (종가 홀딩 여부 판별)**")
+                trend_str = "상승 추세 📈" if is_long_good else "하락 역배열 📉"
+                st.write(f"- 📊 **현재 일봉 추세:** {trend_str}")
+                st.write(f"- 🎯 **일봉 최종 목표가:** {int(long_target):,}원 (상단 밴드)")
+                st.write(f"- 🛡️ **종가 기준 손절선:** {int(long_stop):,}원 (일봉 20선)")
+
+            st.markdown("---")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("##### ⏱️ 10분봉 차트 (단기 흐름)")
+                st.line_chart(df_10m[['Close', 'MA20', 'BB_Upper', 'BB_Lower']])
+                    
+            with col2:
+                st.markdown("##### 📅 일봉 차트 (장기 추세)")
+                st.line_chart(df_daily[['Close', 'MA20', 'BB_Upper', 'BB_Lower']])
+                
+    except Exception as e:
+        # 에러가 나면 무슨 에러인지 화면에 출력해서 바로 대응할 수 있게 변경
+        st.error(f"알 수 없는 오류가 발생했습니다. (상세 내역: {e})")
