@@ -1,8 +1,16 @@
-import streamlit as st
-# 라이브러리 이름이 finance_datareader로 호출되는 것이 표준입니다.
-import finance_datareader as fdr 
-import datetime
+import sys
+import subprocess
 
+# 혹시 모를 라이브러리 설치 문제 해결
+try:
+    import finance_datareader as fdr
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "finance-datareader"])
+    import finance_datareader as fdr
+
+import streamlit as st
+import datetime
+# ... (나머지 코드 그대로)
 st.title("🇰🇷 한국장 검색기")
 
 code = st.text_input("종목코드(6자리) 입력")
