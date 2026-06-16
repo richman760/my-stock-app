@@ -1,5 +1,5 @@
 import streamlit as st
-import FinanceDataReader as fdr  # <--- (수정 완료) 무조건 대문자!!
+import FinanceDataReader as fdr
 import pandas as pd
 import requests
 import datetime
@@ -56,4 +56,37 @@ if code and len(code) == 6:
 
         # 📊 데이터 호출 (일봉은 최근 3개월, 10분봉은 최근 흐름)
         df_daily = fdr.DataReader(code, datetime.date.today() - datetime.timedelta(days=90))
-        df
+        df_10m = get_10m_data(code)
+        
+        price = int(df_daily['Close'].iloc[-1])
+        
+        # 🎯 타점 계산 
+        buy = price                     # 매수가
+        target = int(price * 1.03)      # 목표가 (+3%)
+        stop = int(price * 0.98)        # 손절가 (-2%)
+        
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("현재가", f"{price:,}원")
+        c2.success(f"🎯 목표: {target:,}원")
+        c3.info(f"✅ 매수: {buy:,}원")
+        c4.error(f"🛡️ 손절: {stop:,}원")
+        
+        st.markdown("---")
+        
+        # 📉 차트 2분할 비교 (10분봉 / 일봉)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### ⏱️ 10분봉 차트 (최근 흐름)")
+            if not df_10m.empty:
+                st.line_chart(df_10m['Close'])
+            else:
+                st.warning("10분봉 데이터를 불러올 수 없습니다.")
+                
+        with col2:
+            st.markdown("##### 📅 일봉 차트 (최근 3개월)")
+            if not df_daily.empty:
+                st.line_chart(df_daily['Close'])
+                
+    except Exception as e:
+        st.error("데이터를 불러올 수 없거나 코드가 잘못되었습니다.")
